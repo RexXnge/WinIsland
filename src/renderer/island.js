@@ -1,24 +1,24 @@
 const el = {
-  island:   document.getElementById('island'),
-  art:      document.getElementById('art'),
-  title:    document.getElementById('title'),
-  artist:   document.getElementById('artist'),
-  cur:      document.getElementById('cur'),
-  dur:      document.getElementById('dur'),
-  fill:     document.getElementById('fill'),
-  bar:      document.getElementById('bar'),
-  prev:     document.getElementById('prev'),
-  next:     document.getElementById('next'),
-  play:     document.getElementById('play'),
-  time:     document.getElementById('time'),
-  date:     document.getElementById('date'),
-  wxIcon:   document.getElementById('wx-icon'),
-  wxTemp:   document.getElementById('wx-temp'),
-  wxCity:   document.getElementById('wx-city'),
-  wxCond:   document.getElementById('wx-cond'),
-  wxFeels:  document.getElementById('wx-feels'),
-  wxWind:   document.getElementById('wx-wind'),
-  tabDots:  document.querySelectorAll('.tab-dot'),
+  island:  document.getElementById('island'),
+  art:     document.getElementById('art'),
+  title:   document.getElementById('title'),
+  artist:  document.getElementById('artist'),
+  cur:     document.getElementById('cur'),
+  dur:     document.getElementById('dur'),
+  fill:    document.getElementById('fill'),
+  bar:     document.getElementById('bar'),
+  prev:    document.getElementById('prev'),
+  next:    document.getElementById('next'),
+  play:    document.getElementById('play'),
+  time:    document.getElementById('time'),
+  date:    document.getElementById('date'),
+  wxIcon:  document.getElementById('wx-icon'),
+  wxTemp:  document.getElementById('wx-temp'),
+  wxCity:  document.getElementById('wx-city'),
+  wxCond:  document.getElementById('wx-cond'),
+  wxFeels: document.getElementById('wx-feels'),
+  wxWind:  document.getElementById('wx-wind'),
+  tabDots: document.querySelectorAll('.tab-dot'),
 };
 
 let track = null;
@@ -73,13 +73,13 @@ function applyTrack(t) {
   refreshState();
 }
 
-// ---------- progress tick (DOM updates only when expanded) ----------
+// ---------- tick ----------
 function tick(now) {
   const dt = now - lastTick; lastTick = now;
   if (playing) posMs += dt;
   if (hovering && durMs > 0) {
-    el.fill.style.width   = Math.min(100, (posMs / durMs) * 100) + '%';
-    el.cur.textContent    = fmt(posMs);
+    el.fill.style.width  = Math.min(100, (posMs / durMs) * 100) + '%';
+    el.cur.textContent   = fmt(posMs);
   }
   requestAnimationFrame(tick);
 }
@@ -98,19 +98,18 @@ setInterval(updateClock, 1000);
 
 // ---------- weather ----------
 const WX = {
-  0:['☀️','Clear'],   1:['🌤','Mostly clear'], 2:['⛅','Partly cloudy'], 3:['☁️','Overcast'],
-  45:['🌫','Fog'],    48:['🌫','Icy fog'],
-  51:['🌦','Drizzle'],53:['🌦','Drizzle'],     55:['🌧','Heavy drizzle'],
-  61:['🌧','Light rain'],63:['🌧','Rain'],     65:['🌧','Heavy rain'],
-  71:['🌨','Light snow'],73:['🌨','Snow'],     75:['❄️','Heavy snow'],
-  80:['🌦','Showers'], 81:['🌧','Showers'],   82:['⛈','Heavy showers'],
-  85:['🌨','Snow showers'],86:['❄️','Heavy snow showers'],
+  0:['☀️','Clear'],    1:['🌤','Mostly clear'], 2:['⛅','Partly cloudy'], 3:['☁️','Overcast'],
+  45:['🌫','Fog'],     48:['🌫','Icy fog'],
+  51:['🌦','Drizzle'], 53:['🌦','Drizzle'],    55:['🌧','Heavy drizzle'],
+  61:['🌧','Light rain'],63:['🌧','Rain'],      65:['🌧','Heavy rain'],
+  71:['🌨','Light snow'],73:['🌨','Snow'],      75:['❄️','Heavy snow'],
+  80:['🌦','Showers'],  81:['🌧','Showers'],   82:['⛈','Heavy showers'],
   95:['⛈','Thunderstorm'],96:['⛈','Hailstorm'],99:['⛈','Heavy storm'],
 };
 
 async function fetchWeather() {
   try {
-    const geo = await fetch('https://ipapi.co/json/').then(r => r.json());
+    const geo = await fetch('https://ipwho.is/').then(r => r.json());
     const { latitude, longitude, city } = geo;
     const wx = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
@@ -141,40 +140,29 @@ setInterval(() => {
 }, 100);
 window.island.onBrightness(b => { targetAlpha = 0.28 + b * 0.62; });
 
-// ---------- interactions ----------
-
-// Hover → expand + enable click capture (needed for drag + buttons)
-el.island.addEventListener('mouseenter', () => {
-  hovering = true;
-  window.island.setIgnoreMouse(false);
-  refreshState();
-});
-el.island.addEventListener('mouseleave', () => {
-  hovering = false;
-  window.island.setIgnoreMouse(true);
-  window.island.dragEnd();
+// ---------- hover (driven by main-process cursor poll, not mouseenter) ----------
+window.island.onHoverChange((h) => {
+  hovering = h;
   refreshState();
 });
 
-// Drag — mousedown on island background makes window temporarily focusable
-// so -webkit-app-region: drag can do OS-level smooth window move
+// ---------- drag ----------
 el.island.addEventListener('mousedown', (e) => {
   if (e.target.closest('.ctl,.bar,.tab-dot,button')) return;
-  window.island.dragStart();
+  window.island.dragStart(e.clientX, e.clientY);
 });
 document.addEventListener('mouseup', () => window.island.dragEnd());
 
-// Scroll to switch tabs
+// ---------- scroll to switch tabs ----------
 el.island.addEventListener('wheel', (e) => {
   e.preventDefault();
   if (e.deltaY > 0 && currentTab === 0) switchTab(1);
   else if (e.deltaY < 0 && currentTab === 1) switchTab(0);
 }, { passive: false });
 
-// Tab dot clicks
 el.tabDots.forEach((dot, i) => dot.addEventListener('click', () => switchTab(i)));
 
-// Music controls
+// ---------- music controls ----------
 el.prev.addEventListener('click', (e) => { e.stopPropagation(); window.island.sendControl({ cmd: 'prev' }); });
 el.next.addEventListener('click', (e) => { e.stopPropagation(); window.island.sendControl({ cmd: 'next' }); });
 el.play.addEventListener('click', (e) => { e.stopPropagation(); window.island.sendControl({ cmd: 'toggle' }); });
@@ -189,8 +177,7 @@ el.bar.addEventListener('click', (e) => {
 
 // ---------- ingest ----------
 window.island.onTrack(applyTrack);
-window.island.onSys(() => {}); // sys data consumed but wifi/vol removed from UI
+window.island.onSys(() => {});
 
 switchTab(0);
 refreshState();
-window.island.setIgnoreMouse(true); // start in click-through mode

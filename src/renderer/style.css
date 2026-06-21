@@ -21,7 +21,6 @@ html, body {
   -webkit-backdrop-filter: blur(26px) saturate(170%);
   border: 1px solid rgba(255,255,255,0.06);
   color: #fff; overflow: hidden; transform-origin: top center;
-  -webkit-app-region: drag; /* OS-level smooth drag on background */
   transition:
     width  0.22s cubic-bezier(0.22, 1.3, 0.36, 1),
     height 0.22s cubic-bezier(0.22, 1.3, 0.36, 1),
@@ -51,7 +50,7 @@ html, body {
 .tab-dots {
   display: flex; flex-direction: column;
   gap: 4px; align-items: center; flex-shrink: 0;
-  -webkit-app-region: no-drag;
+
   padding: 2px 0;
 }
 .tab-dot {
@@ -120,20 +119,20 @@ html, body {
 .bar {
   flex: 1; height: 4px; background: rgba(255,255,255,0.16);
   border-radius: 2px; cursor: pointer; position: relative;
-  -webkit-app-region: no-drag;
+
 }
 .fill { height: 100%; width: 0%; background: #fff; border-radius: 2px; }
 
 .controls {
   display: flex; align-items: center; justify-content: center;
   gap: 26px; margin-top: 10px;
-  -webkit-app-region: no-drag;
+
 }
 .ctl {
   background: none; border: none; padding: 0; cursor: pointer;
   opacity: 0.85; transition: opacity 0.12s, transform 0.08s;
   display: flex; align-items: center; justify-content: center;
-  -webkit-app-region: no-drag;
+
 }
 .ctl svg { fill: #fff; display: block; }
 .ctl:hover { opacity: 1; }
