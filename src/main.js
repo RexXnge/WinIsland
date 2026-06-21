@@ -175,6 +175,15 @@ ipcMain.on('set-ignore-mouse', (_e, ignore) => {
   }
 });
 
+ipcMain.on('drag-start', () => {
+  if (!win || win.isDestroyed()) return;
+  win.setFocusable(true);
+});
+ipcMain.on('drag-end', () => {
+  if (!win || win.isDestroyed()) return;
+  win.setFocusable(false);
+});
+
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();

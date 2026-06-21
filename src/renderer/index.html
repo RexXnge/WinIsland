@@ -6,46 +6,68 @@
 </head>
 <body>
   <div id="stage">
-    <div id="island" class="hidden no-music" data-state="hidden">
+    <div id="island" class="collapsed no-music" data-state="collapsed">
 
-      <!-- music zone -->
-      <div class="music">
-        <div class="art-wrap">
-          <div id="art" class="art"></div>
+      <!-- Tab indicator dots (left edge) -->
+      <div class="tab-dots">
+        <div class="tab-dot active"></div>
+        <div class="tab-dot"></div>
+      </div>
+
+      <!-- ── Tab 1: Music + Clock ── -->
+      <div class="tab-panel" id="tab-music">
+        <div class="music">
+          <div class="art-wrap">
+            <div id="art" class="art"></div>
+          </div>
+          <div class="meta">
+            <div class="title-wrap"><div id="title" class="title">—</div></div>
+            <div id="artist" class="artist">—</div>
+            <div class="progress">
+              <span id="cur" class="time">0:00</span>
+              <div id="bar" class="bar"><div id="fill" class="fill"></div></div>
+              <span id="dur" class="time">0:00</span>
+            </div>
+            <div class="controls">
+              <button id="prev" class="ctl" title="Previous">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 5h2v14H6V5zm3.5 7l8.5 6V6l-8.5 6z"/></svg>
+              </button>
+              <button id="play" class="ctl play" title="Play/Pause">
+                <svg class="ic-pause" viewBox="0 0 24 24" width="22" height="22"><path d="M7 5h3.2v14H7V5zm6.8 0H17v14h-3.2V5z"/></svg>
+                <svg class="ic-play"  viewBox="0 0 24 24" width="22" height="22"><path d="M8 5v14l11-7L8 5z"/></svg>
+              </button>
+              <button id="next" class="ctl" title="Next">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M16 5h2v14h-2V5zM6 6l8.5 6L6 18V6z"/></svg>
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div class="meta">
-          <div class="title-wrap"><div id="title" class="title">—</div></div>
-          <div id="artist" class="artist">—</div>
+        <div class="divider"></div>
 
-          <div class="progress">
-            <span id="cur" class="time">0:00</span>
-            <div id="bar" class="bar"><div id="fill" class="fill"></div></div>
-            <span id="dur" class="time">0:00</span>
-          </div>
-
-          <div class="controls">
-            <button id="prev" class="ctl" title="Previous">
-              <svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 5h2v14H6V5zm3.5 7l8.5 6V6l-8.5 6z"/></svg>
-            </button>
-            <button id="play" class="ctl play" title="Play/Pause">
-              <svg class="ic-pause" viewBox="0 0 24 24" width="22" height="22"><path d="M7 5h3.2v14H7V5zm6.8 0H17v14h-3.2V5z"/></svg>
-              <svg class="ic-play" viewBox="0 0 24 24" width="22" height="22"><path d="M8 5v14l11-7L8 5z"/></svg>
-            </button>
-            <button id="next" class="ctl" title="Next">
-              <svg viewBox="0 0 24 24" width="18" height="18"><path d="M16 5h2v14h-2V5zM6 6l8.5 6L6 18V6z"/></svg>
-            </button>
+        <div class="status">
+          <div class="clock">
+            <div id="time" class="clk-time">--:--</div>
+            <div id="date" class="clk-date">—</div>
           </div>
         </div>
       </div>
 
-      <div class="divider"></div>
-
-      <!-- status cluster -->
-      <div class="status">
-        <div class="clock">
-          <div id="time" class="clk-time">--:--</div>
-          <div id="date" class="clk-date">—</div>
+      <!-- ── Tab 2: Weather ── -->
+      <div class="tab-panel" id="tab-weather">
+        <span id="wx-icon" class="wx-icon">⋯</span>
+        <div class="wx-body">
+          <div class="wx-row wx-row-main">
+            <span id="wx-temp" class="wx-temp">—°</span>
+            <span id="wx-city" class="wx-city">—</span>
+          </div>
+          <div class="wx-row wx-row-detail">
+            <span id="wx-cond" class="wx-cond">—</span>
+          </div>
+          <div class="wx-row wx-row-sub">
+            <span id="wx-feels" class="wx-feels">—</span>
+            <span id="wx-wind"  class="wx-wind">—</span>
+          </div>
         </div>
       </div>
 
