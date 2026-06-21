@@ -22,6 +22,7 @@ let posMs = 0, durMs = 0, playing = false;
 let lastTick = performance.now();
 let hovering = false;
 let hasMusic = false;
+let interactiveHovered = 0;
 
 // ---------- state machine ----------
 function setSize(s) {
@@ -112,7 +113,27 @@ setInterval(updateClock, 1000);
 
 // ---------- interactions ----------
 el.island.addEventListener('mouseenter', () => { hovering = true; refreshState(); });
-el.island.addEventListener('mouseleave', () => { hovering = false; refreshState(); });
+el.island.addEventListener('mouseleave', () => {
+  hovering = false;
+  interactiveHovered = 0;
+  window.island.setIgnoreMouse(true);
+  refreshState();
+});
+
+// Click-through: pass clicks to windows below except when over actual controls
+function onInteractiveEnter() {
+  interactiveHovered++;
+  window.island.setIgnoreMouse(false);
+}
+function onInteractiveLeave() {
+  interactiveHovered = Math.max(0, interactiveHovered - 1);
+  if (interactiveHovered === 0) window.island.setIgnoreMouse(true);
+}
+[el.prev, el.next, el.play, el.bar].forEach(btn => {
+  if (!btn) return;
+  btn.addEventListener('mouseenter', onInteractiveEnter);
+  btn.addEventListener('mouseleave', onInteractiveLeave);
+});
 el.prev.addEventListener('click', (e) => { e.stopPropagation(); window.island.sendControl({ cmd: 'prev' }); });
 el.next.addEventListener('click', (e) => { e.stopPropagation(); window.island.sendControl({ cmd: 'next' }); });
 el.play.addEventListener('click', (e) => { e.stopPropagation(); window.island.sendControl({ cmd: 'toggle' }); });
@@ -143,3 +164,6 @@ window.island.onTrack(applyTrack);
 window.island.onSys(applySys);
 
 refreshState();
+
+// Start in click-through mode — only buttons capture clicks
+window.island.setIgnoreMouse(true);
