@@ -1,0 +1,4 @@
+node_modules/
+smtc-helper/bin/
+smtc-helper/obj/
+docs/
