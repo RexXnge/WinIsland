@@ -12,6 +12,7 @@
       <div class="tab-dots">
         <div class="tab-dot active"></div>
         <div class="tab-dot"></div>
+        <div class="tab-dot"></div>
       </div>
 
       <!-- ── Tab 1: Music + Clock ── -->
@@ -19,6 +20,13 @@
         <div class="music">
           <div class="art-wrap">
             <div id="art" class="art"></div>
+            <img id="src-icon" class="src-icon" src="" alt="" />
+          </div>
+          <div class="eq-bars" id="eq">
+            <div class="eq-bar"></div>
+            <div class="eq-bar"></div>
+            <div class="eq-bar"></div>
+            <div class="eq-bar"></div>
           </div>
           <div class="meta">
             <div class="title-wrap"><div id="title" class="title">—</div></div>
@@ -46,6 +54,10 @@
         <div class="divider"></div>
 
         <div class="status">
+          <div class="app-row">
+            <img id="app-icon" class="app-icon" src="" alt="" />
+            <span id="app-name" class="app-name"></span>
+          </div>
           <div class="clock">
             <div id="time" class="clk-time">--:--</div>
             <div id="date" class="clk-date">—</div>
@@ -67,6 +79,56 @@
           <div class="wx-row wx-row-sub">
             <span id="wx-feels" class="wx-feels">—</span>
             <span id="wx-wind"  class="wx-wind">—</span>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="status">
+          <div class="app-row">
+            <img id="wx-app-icon" class="app-icon" src="" alt="" />
+            <span id="wx-app-name" class="app-name"></span>
+          </div>
+          <div class="clock">
+            <div class="clk-time" id="wx-time">--:--</div>
+            <div class="clk-date" id="wx-date">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tab 3: Game Overlay ── -->
+      <div class="tab-panel" id="tab-game">
+        <div class="game-stats">
+          <div class="stat-item">
+            <div class="stat-dot" style="background:#4A9EFF"></div>
+            <span class="stat-label">CPU</span>
+            <span class="stat-val" id="cpu-val">—%</span>
+            <div class="stat-bar"><div class="stat-fill" id="cpu-fill" style="background:#4A9EFF"></div></div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-dot" style="background:#A855F7"></div>
+            <span class="stat-label">GPU</span>
+            <span class="stat-val" id="gpu-val">—%</span>
+            <div class="stat-bar"><div class="stat-fill" id="gpu-fill" style="background:#A855F7"></div></div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-dot" style="background:#F97316"></div>
+            <span class="stat-label">RAM</span>
+            <span class="stat-val" id="ram-val">—%</span>
+            <div class="stat-bar"><div class="stat-fill" id="ram-fill" style="background:#F97316"></div></div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="status">
+          <div class="app-row">
+            <img id="game-app-icon" class="app-icon" src="" alt="" />
+            <span id="game-app-name" class="app-name"></span>
+          </div>
+          <div class="clock">
+            <div class="clk-time" id="game-time">--:--</div>
+            <div class="clk-date" id="game-date">—</div>
           </div>
         </div>
       </div>

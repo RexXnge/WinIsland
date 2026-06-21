@@ -1,8 +1,9 @@
-const { app, BrowserWindow, ipcMain, screen, desktopCapturer } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, session } = require('electron');
 const path = require('path');
 const { spawn, execFile } = require('child_process');
 const readline = require('readline');
 const fs = require('fs');
+const https = require('https');
 
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=48 --optimize-for-size');
 app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling,MediaSessionService');
@@ -13,6 +14,9 @@ let respawnDelay = 500;
 let isDragging = false;
 let dragOffX = 0, dragOffY = 0;
 let wasHovering = false;
+let cachedLat = null, cachedLon = null;
+// island bounds in logical (CSS) px; default = collapsed music tab centered in 460px window
+let islandRect = { x: 60, y: 7, w: 340, h: 54 };
 
 const WIN_W = 460;
 const WIN_H = 200;
@@ -50,33 +54,34 @@ function createWindow() {
 }
 
 // ── Hover detection + drag via cursor polling ──
-// No system-wide mouse hook → zero global mouse lag
+// getCursorScreenPoint and getBounds both return DIP (logical px) — no sf conversion needed
 function startCursorPoll() {
-  setInterval(() => {
-    if (!win || win.isDestroyed()) return;
+  function poll() {
+    if (!win || win.isDestroyed()) { setTimeout(poll, 16); return; }
 
-    const { x: mx, y: my } = screen.getCursorScreenPoint();
+    const { x: mx, y: my } = screen.getCursorScreenPoint(); // DIP logical px
 
-    // Drag: move window at cursor speed, works even outside window bounds
     if (isDragging) {
       win.setPosition(Math.round(mx - dragOffX), Math.round(my - dragOffY));
+      setTimeout(poll, 4); // tight loop during drag for smooth movement
       return;
     }
 
-    // Hover detection: compare cursor vs window bounds
-    const b = win.getBounds();
-    const hovering = mx >= b.x && mx <= b.x + b.width &&
-                     my >= b.y && my <= b.y + b.height;
+    const b = win.getBounds(); // DIP logical px
+    const hovering = mx >= b.x + islandRect.x &&
+                     mx <= b.x + islandRect.x + islandRect.w &&
+                     my >= b.y + islandRect.y &&
+                     my <= b.y + islandRect.y + islandRect.h;
 
     if (hovering !== wasHovering) {
       wasHovering = hovering;
-      // Enable/disable click-through based on hover
       win.setIgnoreMouseEvents(!hovering);
-      if (win.webContents && !win.webContents.isDestroyed()) {
+      if (win.webContents && !win.webContents.isDestroyed())
         win.webContents.send('hover-change', hovering);
-      }
     }
-  }, 16); // ~60fps poll — single getCursorScreenPoint() call, negligible CPU
+    setTimeout(poll, 16); // 60fps when idle
+  }
+  poll();
 }
 
 function startHelper() {
@@ -101,7 +106,17 @@ function startHelper() {
     line = line.trim(); if (!line) return;
     try {
       const obj = JSON.parse(line);
-      if (win && !win.isDestroyed()) win.webContents.send('track', obj);
+      if (obj.type === 'location') {
+        fetchWeather(obj.lat, obj.lon);
+      } else if (obj.type === 'brightness') {
+        if (win && !win.isDestroyed()) win.webContents.send('brightness', obj.value);
+      } else if (obj.type === 'stats') {
+        if (win && !win.isDestroyed()) win.webContents.send('stats', obj);
+      } else if (obj.type === 'foreground') {
+        if (win && !win.isDestroyed()) win.webContents.send('foreground', { app: obj.app, iconB64: obj.iconB64 });
+      } else {
+        if (win && !win.isDestroyed()) win.webContents.send('track', obj);
+      }
     } catch { }
   });
   proc.stderr.on('data', (d) => console.error('[helper]', d.toString()));
@@ -131,28 +146,6 @@ function pollStatus() {
     });
 }
 
-async function sampleBrightness() {
-  try {
-    const { width, height } = screen.getPrimaryDisplay().size;
-    const thumbW = 64, thumbH = Math.round(height * thumbW / width);
-    const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: thumbW, height: thumbH } });
-    if (!sources.length) return;
-    const img = sources[0].thumbnail;
-    const sz = img.getSize(), buf = img.toBitmap();
-    const cx = Math.floor(sz.width / 2), rw = Math.min(36, sz.width), rh = Math.min(6, sz.height);
-    const x0 = Math.max(0, cx - Math.floor(rw / 2));
-    let total = 0, count = 0;
-    for (let y = 1; y < rh; y++)
-      for (let x = x0; x < x0 + rw; x++) {
-        const i = (y * sz.width + x) * 4;
-        total += 0.299 * buf[i + 2] + 0.587 * buf[i + 1] + 0.114 * buf[i];
-        count++;
-      }
-    const brightness = count > 0 ? total / count / 255 : 0.5;
-    if (win && !win.isDestroyed()) win.webContents.send('brightness', brightness);
-  } catch { }
-}
-
 // IPC
 ipcMain.on('control', (_e, cmd) => {
   if (helper && helper.stdin.writable) helper.stdin.write(JSON.stringify(cmd) + '\n');
@@ -160,6 +153,7 @@ ipcMain.on('control', (_e, cmd) => {
 
 ipcMain.on('drag-start', (_e, { offX, offY }) => {
   isDragging = true;
+  // clientX/Y (CSS px) == DIP px == getCursorScreenPoint units, no conversion needed
   dragOffX = offX; dragOffY = offY;
   win.setFocusable(true);
 });
@@ -169,16 +163,87 @@ ipcMain.on('drag-end', () => {
   win.setFocusable(false);
 });
 
+// ── Weather (main process — no CORS/CSP) ──
+function httpsGet(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, { headers: { 'User-Agent': 'WinIsland/1.0' } }, (res) => {
+      let raw = '';
+      res.on('data', c => raw += c);
+      res.on('end', () => { try { resolve(JSON.parse(raw)); } catch (e) { reject(e); } });
+    }).on('error', reject);
+  });
+}
+
+async function fetchWeather(lat, lon) {
+  try {
+    if (lat && lon) { cachedLat = lat; cachedLon = lon; }
+    lat = lat ?? cachedLat;
+    lon = lon ?? cachedLon;
+    if (!lat || !lon) {
+      const geo = await httpsGet('https://ipwho.is/');
+      if (!geo.latitude) throw new Error('no geo');
+      lat = geo.latitude; lon = geo.longitude;
+    }
+    // Parallel: weather + reverse geocode for accurate city name
+    const [wx, place] = await Promise.all([
+      httpsGet(
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+        `&current=temperature_2m,weathercode,apparent_temperature,windspeed_10m&windspeed_unit=kmh&timezone=auto`
+      ),
+      httpsGet(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=10`
+      ).catch(() => ({}))
+    ]);
+    const c = wx.current;
+    const a = place.address || {};
+    const city = a.city || a.town || a.village || a.county || '';
+    if (win && !win.isDestroyed()) win.webContents.send('weather', {
+      ok: true, code: c.weathercode,
+      temp: Math.round(c.temperature_2m),
+      feels: Math.round(c.apparent_temperature),
+      wind: Math.round(c.windspeed_10m),
+      city
+    });
+  } catch (e) {
+    console.error('[weather]', e.message);
+    if (win && !win.isDestroyed()) win.webContents.send('weather', { ok: false });
+  }
+}
+
+ipcMain.on('geo-coords', (_e, { lat, lon }) => fetchWeather(lat, lon));
+ipcMain.on('island-bounds', (_e, rect) => {
+  islandRect = rect;
+  // Send physical screen bounds of island to helper for pixel brightness sampling
+  if (helper && helper.stdin.writable) {
+    const b = win.getBounds();
+    helper.stdin.write(JSON.stringify({
+      cmd: 'setbounds',
+      x: Math.round(b.x + rect.x),
+      y: Math.round(b.y + rect.y),
+      w: Math.round(rect.w),
+      h: Math.round(rect.h)
+    }) + '\n');
+  }
+});
+
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
   app.whenReady().then(() => {
+    // Auto-approve geolocation so renderer can get accurate GPS/WiFi coords
+    session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) => {
+      cb(perm === 'geolocation');
+    });
     createWindow();
     startHelper();
     startCursorPoll();
     pollStatus(); setInterval(pollStatus, 10000);
-    sampleBrightness(); setInterval(sampleBrightness, 8000);
+    // Weather: wait for renderer ready, then fetch
+    win.webContents.once('did-finish-load', () => {
+      fetchWeather();
+      setInterval(fetchWeather, 15 * 60 * 1000);
+    });
   });
 }
 

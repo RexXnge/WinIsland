@@ -1,4 +1,4 @@
-:root { --bg-alpha: 0.52; }
+:root { --bg-alpha: 0.88; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body {
@@ -69,14 +69,15 @@ html, body {
   display: none; align-items: center; gap: 12px;
   flex: 1; min-width: 0;
 }
-/* tab 0 = music (default) */
-#island:not(.tab-1) #tab-music  { display: flex; }
-/* tab 1 = weather */
-#island.tab-1 #tab-weather      { display: flex; }
+#island:not(.tab-1):not(.tab-2) #tab-music  { display: flex; }
+#island.tab-1 #tab-weather                   { display: flex; }
+#island.tab-2 #tab-game                      { display: flex; }
 
-/* ── Tab 2 sizing ── */
+/* ── tab sizing overrides ── */
 #island.tab-1.collapsed { width: 270px; }
 #island.tab-1.expanded  { width: 320px; height: 116px; }
+#island.tab-2.collapsed { width: 300px; }
+#island.tab-2.expanded  { width: 360px; height: 116px; }
 
 /* ── music zone ── */
 .music { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -89,7 +90,7 @@ html, body {
 
 .art-wrap {
   position: relative; flex-shrink: 0;
-  border-radius: 13px; overflow: hidden;
+  border-radius: 13px;
   transition: width 0.22s cubic-bezier(0.22,1.3,0.36,1),
               height 0.22s cubic-bezier(0.22,1.3,0.36,1);
 }
@@ -99,15 +100,17 @@ html, body {
   background-image: linear-gradient(135deg, #2a2a35, #4a4458);
   border-radius: 13px;
 }
+.src-icon {
+  position: absolute; bottom: 3px; right: 3px;
+  width: 16px; height: 16px; border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  display: none; object-fit: contain;
+}
+.src-icon.visible { display: block; }
 
 .meta { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
 .title-wrap { overflow: hidden; white-space: nowrap; }
-.title { font-size: 14px; font-weight: 600; white-space: nowrap; display: inline-block; }
-.title.scroll { animation: marquee 9s linear infinite; }
-@keyframes marquee {
-  0%,12%   { transform: translateX(0); }
-  88%,100% { transform: translateX(calc(-100% + 180px)); }
-}
+.title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
 .artist {
   font-size: 12px; color: rgba(255,255,255,0.55);
   margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -142,6 +145,35 @@ html, body {
 #island.paused .ctl.play .ic-play  { display: block; }
 #island.paused .ctl.play .ic-pause { display: none; }
 
+/* ── eq animation ── */
+.eq-bars {
+  display: none; align-items: flex-end; gap: 2px;
+  height: 16px; flex-shrink: 0;
+}
+#island:not(.no-music) .eq-bars { display: flex; }
+
+.eq-bar {
+  width: 3px; border-radius: 2px;
+  background: rgba(255,255,255,0.85);
+  animation: eq 0.75s ease-in-out infinite alternate;
+  min-height: 3px;
+}
+.eq-bar:nth-child(1) { animation-duration: 0.65s; animation-delay: 0.00s; }
+.eq-bar:nth-child(2) { animation-duration: 0.80s; animation-delay: 0.18s; }
+.eq-bar:nth-child(3) { animation-duration: 0.60s; animation-delay: 0.08s; }
+.eq-bar:nth-child(4) { animation-duration: 0.90s; animation-delay: 0.30s; }
+
+@keyframes eq {
+  from { height: 3px;  }
+  to   { height: 15px; }
+}
+
+/* paused: freeze bars low */
+#island.paused .eq-bar {
+  animation-play-state: paused;
+  height: 3px;
+}
+
 /* ── divider ── */
 .divider {
   width: 1px; align-self: stretch; margin: 8px 0;
@@ -149,8 +181,21 @@ html, body {
 }
 
 /* ── status / clock ── */
-.status { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.status { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
 .clock { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.app-row {
+  display: flex; align-items: center; justify-content: flex-end; gap: 4px;
+}
+.app-icon {
+  width: 14px; height: 14px; object-fit: contain; flex-shrink: 0;
+  display: none;
+}
+.app-icon.visible { display: block; }
+.app-name {
+  font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.65);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 72px; text-align: right; letter-spacing: 0.2px;
+}
 .clk-time { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 0.2px; line-height: 1; }
 .clk-date { font-size: 10px; color: rgba(255,255,255,0.5); line-height: 1; }
 
@@ -188,5 +233,31 @@ html, body {
 .wx-feels { font-size: 11px; color: rgba(255,255,255,0.5); }
 .wx-wind  { font-size: 11px; color: rgba(255,255,255,0.5); }
 
-/* ── dynamic bg alpha ── */
-/* (set via JS on :root --bg-alpha) */
+/* ── game stats ── */
+.game-stats {
+  display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;
+}
+.stat-item {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; min-width: 0;
+}
+.stat-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+}
+.stat-label {
+  font-size: 9px; color: rgba(255,255,255,0.45); letter-spacing: 0.6px;
+  text-transform: uppercase; line-height: 1;
+}
+.stat-val {
+  font-size: 15px; font-weight: 700;
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+  color: #fff;
+}
+.stat-bar {
+  width: 100%; height: 3px; background: rgba(255,255,255,0.12);
+  border-radius: 2px; overflow: hidden; display: none;
+}
+.stat-fill {
+  height: 100%; width: 0%; border-radius: 2px;
+  transition: width 0.6s ease;
+}
+#island.expanded .stat-bar { display: block; }

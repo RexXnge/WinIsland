@@ -6,12 +6,29 @@ const el = {
   cur:     document.getElementById('cur'),
   dur:     document.getElementById('dur'),
   fill:    document.getElementById('fill'),
+  srcIcon: document.getElementById('src-icon'),
   bar:     document.getElementById('bar'),
   prev:    document.getElementById('prev'),
   next:    document.getElementById('next'),
   play:    document.getElementById('play'),
   time:    document.getElementById('time'),
   date:    document.getElementById('date'),
+  wxTime:  document.getElementById('wx-time'),
+  wxDate:  document.getElementById('wx-date'),
+  appName: document.getElementById('app-name'),
+  appIcon:   document.getElementById('app-icon'),
+  wxAppIcon: document.getElementById('wx-app-icon'),
+  wxAppName: document.getElementById('wx-app-name'),
+  gameTime:     document.getElementById('game-time'),
+  gameDate:     document.getElementById('game-date'),
+  gameAppIcon:  document.getElementById('game-app-icon'),
+  gameAppName:  document.getElementById('game-app-name'),
+  cpuVal:  document.getElementById('cpu-val'),
+  gpuVal:  document.getElementById('gpu-val'),
+  ramVal:  document.getElementById('ram-val'),
+  cpuFill: document.getElementById('cpu-fill'),
+  gpuFill: document.getElementById('gpu-fill'),
+  ramFill: document.getElementById('ram-fill'),
   wxIcon:  document.getElementById('wx-icon'),
   wxTemp:  document.getElementById('wx-temp'),
   wxCity:  document.getElementById('wx-city'),
@@ -32,6 +49,7 @@ let currentTab = 0;
 function switchTab(n) {
   currentTab = n;
   el.island.classList.toggle('tab-1', n === 1);
+  el.island.classList.toggle('tab-2', n === 2);
   el.tabDots.forEach((d, i) => d.classList.toggle('active', i === n));
 }
 
@@ -40,6 +58,12 @@ function refreshState() {
   el.island.classList.toggle('no-music', !hasMusic);
   el.island.classList.remove('hidden', 'collapsed', 'expanded');
   el.island.classList.add(hovering ? 'expanded' : 'collapsed');
+  // Report precise island bounds to main for click-through hit-testing
+  // Delay past CSS transition settle (220ms)
+  setTimeout(() => {
+    const r = el.island.getBoundingClientRect();
+    window.island.reportBounds({ x: r.x, y: r.y, w: r.width, h: r.height });
+  }, 250);
 }
 
 // ---------- music ----------
@@ -61,13 +85,15 @@ function applyTrack(t) {
   if (changed) {
     el.title.textContent  = t.title  || 'Unknown';
     el.artist.textContent = t.artist || '';
-    el.title.classList.remove('scroll');
-    requestAnimationFrame(() => {
-      if (el.title.scrollWidth > 180) el.title.classList.add('scroll');
-    });
     el.art.style.backgroundImage = t.thumbB64
       ? `url(data:image/png;base64,${t.thumbB64})`
       : 'linear-gradient(135deg, #2a2a35, #4a4458)';
+    if (t.appIconB64) {
+      el.srcIcon.src = `data:image/png;base64,${t.appIconB64}`;
+      el.srcIcon.classList.add('visible');
+    } else {
+      el.srcIcon.classList.remove('visible');
+    }
   }
   el.dur.textContent = fmt(durMs);
   refreshState();
@@ -90,8 +116,11 @@ const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const MON  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function updateClock() {
   const d = new Date();
-  el.time.textContent = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-  el.date.textContent = `${DAYS[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`;
+  const t = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  const dt = `${DAYS[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`;
+  el.time.textContent = t;     el.date.textContent = dt;
+  el.wxTime.textContent = t;   el.wxDate.textContent = dt;
+  el.gameTime.textContent = t; el.gameDate.textContent = dt;
 }
 updateClock();
 setInterval(updateClock, 1000);
@@ -107,38 +136,28 @@ const WX = {
   95:['⛈','Thunderstorm'],96:['⛈','Hailstorm'],99:['⛈','Heavy storm'],
 };
 
-async function fetchWeather() {
-  try {
-    const geo = await fetch('https://ipwho.is/').then(r => r.json());
-    const { latitude, longitude, city } = geo;
-    const wx = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
-      `&current=temperature_2m,weathercode,apparent_temperature,windspeed_10m&windspeed_unit=kmh&timezone=auto`
-    ).then(r => r.json());
-    const c = wx.current;
-    const [icon, cond] = WX[c.weathercode] ?? ['🌡','Unknown'];
-    el.wxIcon.textContent  = icon;
-    el.wxTemp.textContent  = `${Math.round(c.temperature_2m)}°`;
-    el.wxCond.textContent  = cond;
-    el.wxFeels.textContent = `feels ${Math.round(c.apparent_temperature)}°`;
-    el.wxWind.textContent  = `💨 ${Math.round(c.windspeed_10m)} km/h`;
-    el.wxCity.textContent  = city || '';
-  } catch {
-    el.wxIcon.textContent = '⚠️';
-    el.wxCond.textContent = 'No data';
-  }
+function applyWeather(d) {
+  if (!d.ok) { el.wxIcon.textContent = '⚠️'; el.wxCond.textContent = 'No data'; return; }
+  const [icon, cond] = WX[d.code] ?? ['🌡', 'Unknown'];
+  el.wxIcon.textContent  = icon;
+  el.wxTemp.textContent  = `${d.temp}°`;
+  el.wxCond.textContent  = cond;
+  el.wxFeels.textContent = `feels ${d.feels}°`;
+  el.wxWind.textContent  = `💨 ${d.wind} km/h`;
+  el.wxCity.textContent  = d.city;
 }
-fetchWeather();
-setInterval(fetchWeather, 15 * 60 * 1000);
+window.island.onWeather(applyWeather);
 
-// ---------- dynamic background ----------
-let currentAlpha = 0.52, targetAlpha = 0.52;
+
+
+// ---------- adaptive background ----------
+let currentAlpha = 0.88, targetAlpha = 0.88;
 setInterval(() => {
   if (Math.abs(currentAlpha - targetAlpha) < 0.002) return;
-  currentAlpha += (targetAlpha - currentAlpha) * 0.18;
+  currentAlpha += (targetAlpha - currentAlpha) * 0.15;
   document.documentElement.style.setProperty('--bg-alpha', currentAlpha.toFixed(3));
 }, 100);
-window.island.onBrightness(b => { targetAlpha = 0.28 + b * 0.62; });
+window.island.onBrightness(b => { targetAlpha = 0.88 + b * 0.10; }); // dark bg → 0.88, bright bg → 0.98
 
 // ---------- hover (driven by main-process cursor poll, not mouseenter) ----------
 window.island.onHoverChange((h) => {
@@ -156,8 +175,8 @@ document.addEventListener('mouseup', () => window.island.dragEnd());
 // ---------- scroll to switch tabs ----------
 el.island.addEventListener('wheel', (e) => {
   e.preventDefault();
-  if (e.deltaY > 0 && currentTab === 0) switchTab(1);
-  else if (e.deltaY < 0 && currentTab === 1) switchTab(0);
+  if (e.deltaY > 0 && currentTab < 2) switchTab(currentTab + 1);
+  else if (e.deltaY < 0 && currentTab > 0) switchTab(currentTab - 1);
 }, { passive: false });
 
 el.tabDots.forEach((dot, i) => dot.addEventListener('click', () => switchTab(i)));
@@ -178,6 +197,31 @@ el.bar.addEventListener('click', (e) => {
 // ---------- ingest ----------
 window.island.onTrack(applyTrack);
 window.island.onSys(() => {});
+window.island.onForeground(({ app, iconB64 }) => {
+  const name = app.charAt(0).toUpperCase() + app.slice(1);
+  el.appName.textContent = name;
+  el.wxAppName.textContent = name;
+  el.gameAppName.textContent = name;
+  if (iconB64) {
+    const src = `data:image/png;base64,${iconB64}`;
+    el.appIcon.src = src;     el.appIcon.classList.add('visible');
+    el.wxAppIcon.src = src;   el.wxAppIcon.classList.add('visible');
+    el.gameAppIcon.src = src; el.gameAppIcon.classList.add('visible');
+  } else {
+    el.appIcon.classList.remove('visible');
+    el.wxAppIcon.classList.remove('visible');
+    el.gameAppIcon.classList.remove('visible');
+  }
+});
+
+window.island.onStats(({ cpu, gpu, ram }) => {
+  el.cpuVal.textContent = `${cpu}%`;
+  el.gpuVal.textContent = `${gpu}%`;
+  el.ramVal.textContent = `${ram}%`;
+  el.cpuFill.style.width = `${cpu}%`;
+  el.gpuFill.style.width = `${gpu}%`;
+  el.ramFill.style.width = `${ram}%`;
+});
 
 switchTab(0);
 refreshState();
